@@ -4,17 +4,17 @@ async function getGrupo(req, res) {
   try {
     const id_grupo = req.params.id;
     const userData = req.decoded;
-
-    console.log("SELECT * FROM usuarios_grupos WHERE id_grupo = ${id_grupo} AND id_usuario = ${id_usuario}",
-    { id_grupo, id_usuario: userData.id })
-
     const usuario_grupo = await db.oneOrNone(
       "SELECT * FROM usuarios_grupos WHERE id_grupo = ${id_grupo} AND id_usuario = ${id_usuario}",
       { id_grupo, id_usuario: userData.id }
     );
     
     if (usuario_grupo) {
-      res.json({ response: usuario_grupo });
+      const data = await db.any(
+        "SELECT * FROM historial WHERE id_usuario_grupo IN (SELECT id FROM usuarios_grupos WHERE id_grupo = ${id_grupo})",
+        { id_grupo }
+      );
+      res.json({ response: data });
     } else {
       throw new Error("Este usuario no pertenece a este grupo o el grupo no existe");
     }
@@ -89,16 +89,21 @@ async function postJoinGrupo(req, res) {
         await t.none(
           "INSERT INTO usuarios_grupos (id_usuario, id_grupo, fecha_creacion) VALUES (${id_usuario}, ${id_grupo}, ${fecha_creacion})",
           {
-            id_usuario: userData.id,
-            id_grupo: grupo.id,
+            ...body,
             fecha_creacion: fecha_actual,
           }
         );
+
+        const data = await db.any(
+          "SELECT * FROM historial WHERE id_usuario_grupo IN (SELECT id FROM usuarios_grupos WHERE id_grupo = ${id_grupo})",
+          body
+        );
+        res.json({ response: data });
+
       } else {
         throw new Error("Este usuario ya pertenece a este grupo.");
       }
     });
-    await getGrupo(req, res);
   } catch (error) {
     console.log("ERROR", error);
     res.status(400).json({ response: error });
@@ -113,6 +118,7 @@ module.exports = {
   getGrupo: getGrupo,
   getGrupos: getGrupos,
   postGrupo: postGrupo,
+  postJoinGrupo: postJoinGrupo,
   putGrupo: putGrupo,
   deleteGrupo: deleteGrupo,
 };
