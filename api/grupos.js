@@ -11,7 +11,7 @@ async function getGrupo(req, res) {
     
     if (usuario_grupo) {
       const data = await db.any(
-        "SELECT * FROM historial WHERE id_usuario_grupo IN (SELECT id FROM usuarios_grupos WHERE id_grupo = ${id_grupo})",
+        "SELECT * FROM usuarios_grupos WHERE id_grupo = ${id_grupo}",
         { id_grupo }
       );
       res.json({ response: data });
@@ -94,16 +94,15 @@ async function postJoinGrupo(req, res) {
           }
         );
 
-        const data = await db.any(
-          "SELECT * FROM historial WHERE id_usuario_grupo IN (SELECT id FROM usuarios_grupos WHERE id_grupo = ${id_grupo})",
-          body
-        );
-        res.json({ response: data });
-
       } else {
         throw new Error("Este usuario ya pertenece a este grupo.");
       }
     });
+    const data = await db.any(
+      "SELECT * FROM usuarios_grupos WHERE id_grupo = ${id_grupo}",
+      body
+    );
+    res.json({ response: data });
   } catch (error) {
     console.log("ERROR", error);
     res.status(400).json({ response: error });

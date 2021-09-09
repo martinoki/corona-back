@@ -2,58 +2,92 @@ const db = require("../configs/db");
 
 async function getHistorial(req, res) {
   try {
-    const id_grupo = req.params.id;
+    const id_grupo = req.params.id_grupo;
     const userData = req.decoded;
-    const usuario_grupo = await db.oneOrNone(
-      "SELECT * FROM usuarios_grupos WHERE id = ${id_grupo} AND id_usuario = ${id_usuario}",
+
+    const pertenece = await db.oneOrNone(
+      "SELECT 1 FROM usuarios_grupos WHERE id_grupo = ${id_grupo} AND id_usuario = ${id_usuario}",
       { id_grupo, id_usuario: userData.id }
     );
 
-    if (usuario_grupo) {
-      const data = await db.any(
-        "SELECT * FROM historial WHERE id_usuarios_grupos IN (SELECT id FROM usuarios_grupos WHERE id_grupo = ${id_grupo})",
-        { id_grupo }
+    if (pertenece) {
+      const detalle = await db.any(
+        "SELECT * FROM historial WHERE id_grupo = ${id_grupo} AND id_usuario = ${id_usuario}",
+        { id_grupo, id_usuario: userData.id }
       );
-      res.json({ response: data });
-    } else{
-      throw new Error("Este usuario no pertenece a este grupo.")
+
+      res.json({ response: detalle });
+    } else {
+      throw new Error("Este usuario no puede ver el historial porque no pertenece a este grupo, o el grupo no existe.");
     }
   } catch (error) {
+    console.log(error)
     res.status(400).json({ response: error });
   }
 }
 
 async function postHistorial(req, res) {
   try {
+    const body = req.body;
     const userData = req.decoded;
     const id_usuario = userData.id;
-    const gastado = parseFloat(req.body.total)
-    const parasitos = req.body.parasitos;
+    const gastado = parseFloat(body.total);
+    const parasitos = body.parasitos;
     const cantidad_parasitos = parasitos.length;
     const parte = gastado / cantidad_parasitos;
-    const insertData = {
-      id_usuario,
-      gasto: gastado,
-      fecha: new Date(),
-      descripcion: req.body.descripcion
-    }
-    console.log("AAA")
-    await db.query(
-      "INSERT INTO historial(id_usuario, gasto, fecha, descripcion) VALUES (${id_usuario}, ${gasto}, ${fecha}, ${descripcion})",
-      insertData
+
+    const id_grupo = body.id_grupo;
+    console.log(
+      `SELECT 1 FROM usuarios_grupos WHERE id_grupo = '${id_grupo}' AND id_usuario IN (${parasitos
+        .map((item) => "'" + item.toString() + "'")
+        .join(",")})`
     );
-    console.log("BBB")
-    await db.query(
-      `UPDATE corona SET total = total + ${gastado} WHERE id = ${idCorona} RETURNING *`
+    const usuario_grupo = await db.any(
+      `SELECT 1 FROM usuarios_grupos WHERE id_grupo = '${id_grupo}' AND id_usuario IN (${parasitos
+        .map((item) => "'" + item.toString() + "'")
+        .join(",")})`
+    );
+
+    console;
+
+    if (usuario_grupo.length !== parasitos.length) {
+      throw new Error(
+        "Usuarios incorrectos. Verifique que todos los usuarios pertenezcan al grupo"
       );
-      console.log("CCC")
-    await db.query(
-        `UPDATE corona SET total = total - ${parte} WHERE id IN (${parasitos.join(",")}) RETURNING *`
+    }
+
+    await db.tx(async (t) => {
+      const insertData = {
+        id_usuario,
+        id_grupo,
+        gasto: gastado,
+        fecha_creacion: new Date(),
+        descripcion: body.descripcion,
+      };
+      console.log("AAA");
+      await t.none(
+        "INSERT INTO historial(id_usuario, id_grupo, gasto, fecha_creacion, descripcion) VALUES (${id_usuario}, ${id_grupo}, ${gasto}, ${fecha_creacion}, ${descripcion})",
+        insertData
       );
-    const historial = await db.any("SELECT * FROM corona");
+
+      console.log("BBB");
+      await t.none(
+        `UPDATE usuarios_grupos SET total = total + ${gastado} WHERE id_usuario = '${id_usuario}' AND id_grupo = '${id_grupo}'`
+      );
+
+      console.log("CCC");
+      await t.none(
+        `UPDATE usuarios_grupos SET total = total - ${parte} WHERE id_grupo = '${id_grupo}' AND id_usuario IN (${parasitos
+          .map((item) => "'" + item.toString() + "'")
+          .join(",")})`
+      );
+    });
+    const historial = await db.any(
+      `SELECT * FROM usuarios_grupos WHERE id_grupo = '${id_grupo}'`
+    );
     res.json({ response: historial });
   } catch (error) {
-      console.log(error)
+    console.log(error);
     res.status(400).json({ response: error });
   }
 }

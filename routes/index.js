@@ -34,7 +34,7 @@ router.put("/grupos/:id", verifyToken, grupos.putGrupo);
 router.delete("/grupos/:id", verifyToken, grupos.deleteGrupo);
 
 /*HISTORIAL*/
-router.get("/historial/:id", verifyToken, historial.getHistorial);
+router.get("/historial/:id_grupo", verifyToken, historial.getHistorial);
 router.post("/historial", verifyToken, historial.postHistorial);
 router.put("/historial/:id", verifyToken, historial.putHistorial);
 router.delete("/historial", verifyToken, historial.deleteHistorial);
