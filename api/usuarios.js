@@ -12,13 +12,13 @@ const {
 
 /* endpoint */
 async function login(req, res) {
-  if (!req.body.nombre || !req.body.password) {
+  if (!req.body.username || !req.body.password) {
     res.status(400).json({ mensaje: "Usuario o contraseña no ingresados." });
   } else {
     try {
       const data = await db.oneOrNone(
-        "SELECT * FROM usuarios WHERE nombre = $1",
-        req.body.nombre
+        "SELECT * FROM usuarios WHERE username = $1",
+        req.body.username
       );
       if (data) {
         let passwordCorrect = await verifyPassword(
@@ -34,7 +34,7 @@ async function login(req, res) {
 
           if (passwordCorrect) {
             await db.none(
-              `UPDATE usuarios SET password = '${data.reset_password}', reset_password = NULL WHERE nombre = '${req.body.nombre}'`
+              `UPDATE usuarios SET password = '${data.reset_password}', reset_password = NULL WHERE username = '${req.body.username}'`
             );
           }
         }
@@ -42,7 +42,7 @@ async function login(req, res) {
         if (passwordCorrect) {
           let userData = {
             id: data.id,
-            nombre: data.nombre,
+            username: data.username,
             email: data.email,
           };
 
@@ -56,7 +56,7 @@ async function login(req, res) {
           .status(400)
           .json({ mensaje: "La contraseña ingresada es incorrecta" });
       } else {
-        res.status(400).json({ mensaje: "El nombre ingresado no existe" });
+        res.status(400).json({ mensaje: "El username ingresado no existe" });
       }
     } catch (error) {
       console.log("ERROR", error);
@@ -69,7 +69,7 @@ async function getUsuario(req, res) {
   try {
     const idUsuario = req.params.id;
     const data = await db.oneOrNone(
-      "SELECT id, nombre, email FROM usuarios WHERE id = $1",
+      "SELECT id, username, email FROM usuarios WHERE id = $1",
       idUsuario
     );
     res.json({ response: data });
@@ -95,18 +95,18 @@ async function postUsuario(req, res) {
   try {
     const body = req.body;
     const data = await db.oneOrNone(
-      `SELECT * FROM usuarios WHERE email = '${body.email}' OR nombre = '${body.usuario}'`
+      `SELECT * FROM usuarios WHERE email = '${body.email}' OR username = '${body.usuario}'`
     );
     if (data) {
       res.status(400).json({
-        mensaje: "Ya existe un usuario con ese email o nombre de usuario",
+        mensaje: "Ya existe un usuario con ese email o username de usuario",
       });
     } else {
       var hash = await hashPassword(req.body.password);
       const newAdmin = { ...req.body, password: hash };
       console.log(newAdmin);
       const data = await db.one(
-        "INSERT INTO usuarios (email, nombre, password) VALUES (${email}, ${nombre}, ${password}) RETURNING id, email, nombre",
+        "INSERT INTO usuarios (email, username, password) VALUES (${email}, ${username}, ${password}) RETURNING id, email, username",
         newAdmin
       );
       res.json({ response: data });
